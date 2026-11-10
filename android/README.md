@@ -14,6 +14,13 @@ https://f-droid.org/packages/com.termux/
 curl -fsSL https://raw.githubusercontent.com/guntar1904-spec/Rundfahrten-/main/android/install.sh | bash
 ```
 
+**Alternative ohne GitHub:** Die Datei `ki-agent-installer.sh` (enthält alles, erzeugt mit
+`android/build-bundle.sh`) aufs Tablet in *Downloads* laden und in Termux eingeben:
+
+```bash
+termux-setup-storage && bash ~/storage/downloads/ki-agent-installer.sh
+```
+
 Das war's. Der Installer (ca. 1–3 Minuten) erledigt alles selbst und fragt dich nur nach:
 - **Dateizugriff** → *Erlauben* tippen (damit Ergebnisse im Ordner **KI-Agent** landen)
 - **API-Schlüssel** → von https://console.anthropic.com (*API Keys → Create Key*) kopieren und einfügen

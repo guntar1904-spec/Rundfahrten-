@@ -35,7 +35,10 @@ say "2/4  KI-Agent installieren"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
-if [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/../agent/main.py" ]; then
+SELF="${BASH_SOURCE[0]:-}"
+if [ -n "$SELF" ] && [ -f "$SELF" ] && grep -q '^__KI_AGENT_PAYLOAD__$' "$SELF"; then
+  sed '1,/^__KI_AGENT_PAYLOAD__$/d' "$SELF" | base64 -d | tar -xz -C "$TMP"   # Komplett-Installer
+elif [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/../agent/main.py" ]; then
   cp -r "$SCRIPT_DIR/../agent" "$TMP/agent"            # aus geklontem Repository
 else
   curl -fsSL "https://codeload.github.com/$REPO/tar.gz/refs/heads/$BRANCH" -o "$TMP/src.tgz" \
@@ -129,3 +132,4 @@ cat <<DONE
   Mehr:         ki-agent --setup | --update | --uninstall
 DONE
 [ "$API_OK" = 1 ] || echo "  Nicht vergessen: App 'Termux:API' installieren (Seite wurde geöffnet)."
+exit 0
