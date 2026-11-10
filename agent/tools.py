@@ -11,7 +11,7 @@ import os
 import subprocess
 from pathlib import Path
 
-from anthropic import beta_tool
+from .tooling import tool
 
 WORKSPACE = Path(os.environ.get("AGENT_WORKSPACE", "workspace")).resolve()
 MEMORY_FILE = WORKSPACE / "MEMORY.md"
@@ -36,7 +36,7 @@ def _truncate(text: str) -> str:
     return text[:MAX_OUTPUT_CHARS] + f"\n... [gekürzt, {len(text) - MAX_OUTPUT_CHARS} Zeichen ausgelassen]"
 
 
-@beta_tool
+@tool
 def list_files(directory: str = ".") -> str:
     """List files and folders inside the agent workspace.
 
@@ -54,7 +54,7 @@ def list_files(directory: str = ".") -> str:
     return "\n".join(lines) or "(leer)"
 
 
-@beta_tool
+@tool
 def read_file(path: str) -> str:
     """Read a UTF-8 text file from the agent workspace.
 
@@ -64,7 +64,7 @@ def read_file(path: str) -> str:
     return _truncate(_safe_path(path).read_text(encoding="utf-8"))
 
 
-@beta_tool
+@tool
 def write_file(path: str, content: str) -> str:
     """Create or overwrite a text file in the agent workspace. Parent folders are created automatically.
 
@@ -78,7 +78,7 @@ def write_file(path: str, content: str) -> str:
     return f"{len(content)} Zeichen nach '{path}' geschrieben."
 
 
-@beta_tool
+@tool
 def run_command(command: str, timeout_seconds: int = 60) -> str:
     """Run a shell command inside the agent workspace and return stdout, stderr and exit code.
 
@@ -108,7 +108,7 @@ def run_command(command: str, timeout_seconds: int = 60) -> str:
     return _truncate(f"exit_code: {proc.returncode}\n--- stdout ---\n{proc.stdout}\n--- stderr ---\n{proc.stderr}")
 
 
-@beta_tool
+@tool
 def read_memory() -> str:
     """Read the agent's long-term memory (notes kept across runs)."""
     if not MEMORY_FILE.exists():
@@ -116,7 +116,7 @@ def read_memory() -> str:
     return _truncate(MEMORY_FILE.read_text(encoding="utf-8"))
 
 
-@beta_tool
+@tool
 def save_memory(note: str) -> str:
     """Append a short note to the agent's long-term memory so future runs can use it.
 
@@ -132,7 +132,7 @@ def save_memory(note: str) -> str:
     return "Gespeichert."
 
 
-@beta_tool
+@tool
 def current_datetime() -> str:
     """Return the current local date and time (ISO 8601)."""
     return _dt.datetime.now().astimezone().isoformat(timespec="seconds")

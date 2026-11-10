@@ -13,7 +13,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from anthropic import beta_tool
+from .tooling import tool
 
 from . import tools as _base
 
@@ -43,7 +43,7 @@ def _start_activity(*am_args: str) -> str:
 
 # --- Apps & Links -------------------------------------------------------------
 
-@beta_tool
+@tool
 def list_installed_apps(filter_text: str = "") -> str:
     """List package names of user-installed apps on the tablet.
 
@@ -57,7 +57,7 @@ def list_installed_apps(filter_text: str = "") -> str:
     return "\n".join(pkgs) or "Keine passenden Apps gefunden."
 
 
-@beta_tool
+@tool
 def open_app(package_name: str) -> str:
     """Open (launch) an installed app on the tablet by its package name.
 
@@ -73,7 +73,7 @@ def open_app(package_name: str) -> str:
     return f"App {package_name} geöffnet."
 
 
-@beta_tool
+@tool
 def open_url(url: str) -> str:
     """Open a web link, map link (geo:), mail link (mailto:) or other URI on the tablet with the default app.
 
@@ -83,7 +83,7 @@ def open_url(url: str) -> str:
     return _run(["termux-open-url", url])
 
 
-@beta_tool
+@tool
 def share_text(text: str, title: str = "Teilen") -> str:
     """Open the Android share dialog with a text, so the user can send it via any app.
 
@@ -96,7 +96,7 @@ def share_text(text: str, title: str = "Teilen") -> str:
 
 # --- Wecker, Timer, Kalender ----------------------------------------------------
 
-@beta_tool
+@tool
 def set_alarm(hour: int, minute: int, label: str = "") -> str:
     """Set an alarm in the tablet's clock app.
 
@@ -115,7 +115,7 @@ def set_alarm(hour: int, minute: int, label: str = "") -> str:
     return f"Wecker für {hour:02d}:{minute:02d} gestellt."
 
 
-@beta_tool
+@tool
 def set_timer(seconds: int, label: str = "") -> str:
     """Start a countdown timer in the tablet's clock app.
 
@@ -132,7 +132,7 @@ def set_timer(seconds: int, label: str = "") -> str:
     return f"Timer über {seconds} Sekunden gestartet."
 
 
-@beta_tool
+@tool
 def add_calendar_event(title: str, start_iso: str, end_iso: str, location: str = "", description: str = "") -> str:
     """Open the calendar app with a pre-filled new event; the user confirms it with one tap.
 
@@ -159,7 +159,7 @@ def add_calendar_event(title: str, start_iso: str, end_iso: str, location: str =
 
 # --- Benachrichtigungen, Sprache, Zwischenablage --------------------------------
 
-@beta_tool
+@tool
 def send_notification(title: str, content: str) -> str:
     """Show a notification on the tablet (e.g. to report results or remind the user).
 
@@ -170,7 +170,7 @@ def send_notification(title: str, content: str) -> str:
     return _run(["termux-notification", "--title", title, "--content", content])
 
 
-@beta_tool
+@tool
 def read_notifications() -> str:
     """Read the notifications currently shown on the tablet (app, title, text).
 
@@ -185,7 +185,7 @@ def read_notifications() -> str:
     return _base._truncate("\n".join(lines)) or "Keine Benachrichtigungen."
 
 
-@beta_tool
+@tool
 def speak(text: str) -> str:
     """Read a text aloud on the tablet using text-to-speech.
 
@@ -195,13 +195,13 @@ def speak(text: str) -> str:
     return _run(["termux-tts-speak", text], timeout=300)
 
 
-@beta_tool
+@tool
 def get_clipboard() -> str:
     """Return the current text in the tablet's clipboard."""
     return _run(["termux-clipboard-get"])
 
 
-@beta_tool
+@tool
 def set_clipboard(text: str) -> str:
     """Copy a text into the tablet's clipboard.
 
@@ -214,7 +214,7 @@ def set_clipboard(text: str) -> str:
 
 # --- Geräteinfos & Hardware ------------------------------------------------------
 
-@beta_tool
+@tool
 def device_status() -> str:
     """Return battery status, Wi-Fi connection info and volume levels of the tablet."""
     parts = []
@@ -230,13 +230,13 @@ def device_status() -> str:
     return "\n\n".join(parts)
 
 
-@beta_tool
+@tool
 def get_location() -> str:
     """Return the tablet's current location (latitude/longitude). Requires location permission for Termux:API."""
     return _run(["termux-location", "-p", "network", "-r", "once"], timeout=60)
 
 
-@beta_tool
+@tool
 def set_volume(stream: str, level: int) -> str:
     """Set the tablet's volume.
 
@@ -247,7 +247,7 @@ def set_volume(stream: str, level: int) -> str:
     return _run(["termux-volume", stream, str(level)])
 
 
-@beta_tool
+@tool
 def set_brightness(level: int) -> str:
     """Set the screen brightness.
 
@@ -257,7 +257,7 @@ def set_brightness(level: int) -> str:
     return _run(["termux-brightness", str(max(0, min(level, 255)))])
 
 
-@beta_tool
+@tool
 def take_photo(filename: str = "", camera: int = 0) -> str:
     """Take a photo with the tablet camera and save it into the agent workspace.
 
@@ -277,7 +277,7 @@ def take_photo(filename: str = "", camera: int = 0) -> str:
 JOBS_DIR = Path.home() / ".config" / "ki-agent" / "jobs"
 
 
-@beta_tool
+@tool
 def schedule_task(goal: str, every_minutes: int = 0, job_id: int = 0) -> str:
     """Schedule the agent to work on a goal by itself later, in the background (e.g. a daily summary).
 
@@ -310,7 +310,7 @@ def schedule_task(goal: str, every_minutes: int = 0, job_id: int = 0) -> str:
     return f"Aufgabe #{job_id} geplant ({when}). Protokoll: {JOBS_DIR / f'{job_id}.log'}"
 
 
-@beta_tool
+@tool
 def list_scheduled_tasks() -> str:
     """List the agent's scheduled background tasks with their goals."""
     lines = []
@@ -320,7 +320,7 @@ def list_scheduled_tasks() -> str:
     return "\n".join(lines) or "Keine geplanten Aufgaben."
 
 
-@beta_tool
+@tool
 def cancel_scheduled_task(job_id: int) -> str:
     """Cancel a scheduled background task.
 

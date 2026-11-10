@@ -1,107 +1,106 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# Installer für den KI-Agenten auf Android (Termux).
+# Ein-Befehl-Installer für den KI-Agenten auf Android (Termux).
 #
-# Benutzung in Termux:
-#   pkg install -y git
-#   git clone https://github.com/guntar1904-spec/Rundfahrten-.git
-#   bash Rundfahrten-/android/install.sh
+# In Termux einfügen:
+#   curl -fsSL https://raw.githubusercontent.com/guntar1904-spec/Rundfahrten-/main/android/install.sh | bash
+#
+# Andere Quelle/Branch:  KI_AGENT_BRANCH=<branch> bash install.sh
 set -euo pipefail
 
+REPO="guntar1904-spec/Rundfahrten-"
+BRANCH="${KI_AGENT_BRANCH:-main}"
 APP_NAME="ki-agent"
 INSTALL_DIR="$HOME/.local/share/$APP_NAME"
 CONFIG_DIR="$HOME/.config/$APP_NAME"
 ENV_FILE="$CONFIG_DIR/env"
 BIN_DIR="${PREFIX:-/data/data/com.termux/files/usr}/bin"
-SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 say()  { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 warn() { printf '\033[1;33m[!] %s\033[0m\n' "$*"; }
 die()  { printf '\033[1;31m[x] %s\033[0m\n' "$*" >&2; exit 1; }
 
-# --- 0. Umgebung prüfen ------------------------------------------------------
 if [ -z "${TERMUX_VERSION:-}" ] && [ ! -d /data/data/com.termux ]; then
   die "Dieses Skript ist für Termux auf Android gedacht. Termux gibt es bei F-Droid: https://f-droid.org/packages/com.termux/"
 fi
-[ -f "$SRC_DIR/agent/main.py" ] || die "Agent-Quellcode nicht gefunden in $SRC_DIR. Bitte das Repository klonen und das Skript daraus starten."
 
-# --- 1. Systempakete ---------------------------------------------------------
-say "Pakete aktualisieren und Python installieren (kann ein paar Minuten dauern)"
-pkg update -y
-pkg install -y python git termux-api
+# --- 1. Pakete (fertig kompiliert, kein Warten auf Kompilieren) ---------------
+say "1/4  Python und Android-Schnittstelle installieren"
+export DEBIAN_FRONTEND=noninteractive
+APT_OPTS=(-o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confnew)
+pkg update -y "${APT_OPTS[@]}" </dev/null || pkg update -y </dev/null
+pkg install -y "${APT_OPTS[@]}" python termux-api curl </dev/null
 
-# --- 2. Python-Abhängigkeiten ------------------------------------------------
-say "Virtuelle Python-Umgebung anlegen"
-mkdir -p "$INSTALL_DIR"
-python -m venv "$INSTALL_DIR/venv"
-PIP="$INSTALL_DIR/venv/bin/pip"
-"$PIP" install --upgrade pip >/dev/null
-
-say "Anthropic-SDK installieren"
-if ! "$PIP" install --prefer-binary -r "$SRC_DIR/requirements.txt"; then
-  # pydantic-core (Abhängigkeit des SDK) hat für Termux oft kein fertiges Paket
-  # und muss dann mit Rust kompiliert werden. Das dauert einmalig 10–20 Minuten.
-  warn "Fertiges Paket nicht verfügbar – kompiliere mit Rust (einmalig 10–20 Minuten, Handy am Strom lassen)."
-  pkg install -y rust binutils
-  export ANDROID_API_LEVEL="$(getprop ro.build.version.sdk 2>/dev/null || echo 24)"
-  "$PIP" install -r "$SRC_DIR/requirements.txt"
+# --- 2. Agent holen ---------------------------------------------------------
+say "2/4  KI-Agent installieren"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+if [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/../agent/main.py" ]; then
+  cp -r "$SCRIPT_DIR/../agent" "$TMP/agent"            # aus geklontem Repository
+else
+  curl -fsSL "https://codeload.github.com/$REPO/tar.gz/refs/heads/$BRANCH" -o "$TMP/src.tgz" \
+    || die "Download fehlgeschlagen (Internet? Ist das Repository öffentlich und der Branch '$BRANCH' vorhanden?)"
+  tar -xzf "$TMP/src.tgz" -C "$TMP"
+  mv "$TMP"/*/agent "$TMP/agent" || die "Im Download wurde kein Agent gefunden."
 fi
-
-# --- 3. Agent-Code kopieren --------------------------------------------------
-say "Agent installieren nach $INSTALL_DIR"
+mkdir -p "$INSTALL_DIR"
 rm -rf "$INSTALL_DIR/agent"
-cp -r "$SRC_DIR/agent" "$INSTALL_DIR/agent"
+mv "$TMP/agent" "$INSTALL_DIR/agent"
 find "$INSTALL_DIR/agent" -name '__pycache__' -type d -prune -exec rm -rf {} +
 
-# --- 4. Speicherort für Ergebnisse -------------------------------------------
+# --- 3. Einstellungen -------------------------------------------------------
+say "3/4  Einrichten"
 WORKSPACE="$HOME/ki-agent-workspace"
-if [ -d "$HOME/storage/shared" ] || { say "Zugriff auf den Handyspeicher erlauben (Dialog bestätigen)"; termux-setup-storage 2>/dev/null && sleep 3 && [ -d "$HOME/storage/shared" ]; }; then
-  WORKSPACE="$HOME/storage/shared/KI-Agent"
+if [ ! -d "$HOME/storage/shared" ]; then
+  echo "Bitte im nächsten Fenster den Zugriff auf Dateien erlauben (für den Ergebnisordner)."
+  termux-setup-storage 2>/dev/null || true
+  for _ in 1 2 3 4 5 6 7 8 9 10; do [ -d "$HOME/storage/shared" ] && break; sleep 1; done
 fi
-mkdir -p "$WORKSPACE"
-
-# --- 5. API-Schlüssel ---------------------------------------------------------
-mkdir -p "$CONFIG_DIR"
+[ -d "$HOME/storage/shared" ] && WORKSPACE="$HOME/storage/shared/KI-Agent"
+mkdir -p "$WORKSPACE" "$CONFIG_DIR"
 chmod 700 "$CONFIG_DIR"
-if [ -f "$ENV_FILE" ] && grep -q '^ANTHROPIC_API_KEY=.' "$ENV_FILE"; then
-  say "API-Schlüssel ist bereits gespeichert (ändern mit: ki-agent --setup)"
-else
-  say "Anthropic-API-Schlüssel eingeben (von https://console.anthropic.com – Eingabe bleibt unsichtbar)"
-  read -r -s -p "API-Schlüssel: " KEY </dev/tty; echo
-  [ -n "$KEY" ] || warn "Kein Schlüssel eingegeben – später mit 'ki-agent --setup' nachholen."
-  umask 077
-  printf 'ANTHROPIC_API_KEY=%s\n' "$KEY" > "$ENV_FILE"
-fi
 umask 077
-grep -v '^AGENT_WORKSPACE=' "$ENV_FILE" > "$ENV_FILE.tmp" || true
-printf 'AGENT_WORKSPACE=%s\n' "$WORKSPACE" >> "$ENV_FILE.tmp"
+touch "$ENV_FILE"
+
+if ! grep -q '^ANTHROPIC_API_KEY=.' "$ENV_FILE"; then
+  echo
+  echo "Jetzt brauchst du deinen API-Schlüssel von https://console.anthropic.com"
+  echo "(dort: API Keys > Create Key). Einfügen mit langem Tippen > Einfügen."
+  read -r -s -p "API-Schlüssel: " KEY </dev/tty || KEY=""; echo
+  [ -n "$KEY" ] || warn "Kein Schlüssel eingegeben – später mit 'ki-agent --setup' nachholen."
+  { grep -v '^ANTHROPIC_API_KEY=' "$ENV_FILE" || true; printf 'ANTHROPIC_API_KEY=%s\n' "$KEY"; } > "$ENV_FILE.tmp"
+  mv "$ENV_FILE.tmp" "$ENV_FILE"
+fi
+{ grep -v '^AGENT_WORKSPACE=' "$ENV_FILE" || true; printf 'AGENT_WORKSPACE=%s\n' "$WORKSPACE"; } > "$ENV_FILE.tmp"
 mv "$ENV_FILE.tmp" "$ENV_FILE"
 chmod 600 "$ENV_FILE"
 
-# --- 6. Startbefehl 'ki-agent' ----------------------------------------------
-say "Befehl 'ki-agent' anlegen"
+# --- 4. Befehl & Verknüpfung --------------------------------------------------
+say "4/4  Befehl 'ki-agent' und Homescreen-Verknüpfung anlegen"
 cat > "$BIN_DIR/ki-agent" <<LAUNCHER
 #!/data/data/com.termux/files/usr/bin/bash
 set -a; . "$ENV_FILE"; set +a
-if [ "\${1:-}" = "--setup" ]; then
-  read -r -s -p "Neuer API-Schlüssel: " KEY; echo
-  { grep -v '^ANTHROPIC_API_KEY=' "$ENV_FILE"; printf 'ANTHROPIC_API_KEY=%s\n' "\$KEY"; } > "$ENV_FILE.tmp"
-  mv "$ENV_FILE.tmp" "$ENV_FILE"; chmod 600 "$ENV_FILE"; echo "Gespeichert."; exit 0
-fi
-if [ "\${1:-}" = "--uninstall" ]; then
-  for job in "$CONFIG_DIR"/jobs/*.sh; do [ -e "\$job" ] && termux-job-scheduler --cancel --job-id "\$(basename "\$job" .sh)" >/dev/null 2>&1; done
-  rm -rf "$INSTALL_DIR" "$CONFIG_DIR" "$BIN_DIR/ki-agent" "\$HOME/.shortcuts/KI-Agent"
-  echo "Deinstalliert. Ergebnisse in $WORKSPACE wurden behalten."; exit 0
-fi
+case "\${1:-}" in
+  --setup)
+    read -r -s -p "Neuer API-Schlüssel: " KEY; echo
+    { grep -v '^ANTHROPIC_API_KEY=' "$ENV_FILE"; printf 'ANTHROPIC_API_KEY=%s\n' "\$KEY"; } > "$ENV_FILE.tmp"
+    mv "$ENV_FILE.tmp" "$ENV_FILE"; chmod 600 "$ENV_FILE"; echo "Gespeichert."; exit 0 ;;
+  --update)
+    curl -fsSL "https://raw.githubusercontent.com/$REPO/$BRANCH/android/install.sh" | KI_AGENT_BRANCH="$BRANCH" bash; exit ;;
+  --uninstall)
+    for job in "$CONFIG_DIR"/jobs/*.sh; do [ -e "\$job" ] && termux-job-scheduler --cancel --job-id "\$(basename "\$job" .sh)" >/dev/null 2>&1; done
+    rm -rf "$INSTALL_DIR" "$CONFIG_DIR" "$BIN_DIR/ki-agent" "\$HOME/.shortcuts/KI-Agent"
+    echo "Deinstalliert. Ergebnisse in $WORKSPACE wurden behalten."; exit 0 ;;
+esac
 termux-wake-lock 2>/dev/null || true
 cd "$INSTALL_DIR"
-"$INSTALL_DIR/venv/bin/python" -m agent "\$@"
+python -m agent "\$@"
 status=\$?
 termux-wake-unlock 2>/dev/null || true
 exit \$status
 LAUNCHER
 chmod 755 "$BIN_DIR/ki-agent"
 
-# --- 7. Verknüpfung für den Homescreen (Termux:Widget) -----------------------
 mkdir -p "$HOME/.shortcuts"
 cat > "$HOME/.shortcuts/KI-Agent" <<'SHORTCUT'
 #!/data/data/com.termux/files/usr/bin/bash
@@ -110,18 +109,23 @@ echo; read -r -p "Fertig – Enter zum Schließen."
 SHORTCUT
 chmod 755 "$HOME/.shortcuts/KI-Agent"
 
+# --- Prüfen, ob die App Termux:API da ist -------------------------------------
+API_OK=1
+if ! timeout 8 termux-battery-status >/dev/null 2>&1; then
+  API_OK=0
+  warn "Die App 'Termux:API' fehlt noch – sie wird gebraucht, damit der Agent das Tablet bedienen kann."
+  echo "    Ich öffne die Download-Seite. Dort 'Installieren' tippen."
+  termux-open-url "https://f-droid.org/packages/com.termux.api/" 2>/dev/null || true
+fi
+
 say "Fertig! 🎉"
 cat <<DONE
 
-  Starten:        ki-agent "Dein Ziel ..."
-  Ohne Ziel:      ki-agent            (fragt nach dem Ziel)
-  Voll autonom:   ki-agent --yes "..."
-  Schlüssel neu:  ki-agent --setup
-  Entfernen:      ki-agent --uninstall
+  So startest du den Agenten:
+      ki-agent "Stell mir einen Wecker für 7 Uhr"
+      ki-agent                      (fragt nach deinem Auftrag)
 
-  Ergebnisse:     $WORKSPACE
-  WICHTIG:        App "Termux:API" von F-Droid installieren, damit der Agent das Tablet
-                  bedienen kann (Apps öffnen, Wecker, Benachrichtigungen, ...).
-                  Für "Apps öffnen": Einstellungen > Apps > Termux > "Über anderen Apps einblenden" erlauben.
-  Homescreen:     App "Termux:Widget" (F-Droid) installieren und Widget "KI-Agent" hinzufügen.
+  Ergebnisse:   Ordner "KI-Agent" auf dem Tablet
+  Mehr:         ki-agent --setup | --update | --uninstall
 DONE
+[ "$API_OK" = 1 ] || echo "  Nicht vergessen: App 'Termux:API' installieren (Seite wurde geöffnet)."

@@ -6,14 +6,13 @@ und meldet sich erst, wenn er fertig ist.
 
 ## Android
 
-Für Android (Termux) gibt es einen Installer – siehe [android/README.md](android/README.md).
+Installation auf dem Tablet mit **einem Befehl** – siehe [android/README.md](android/README.md).
+Dort bedient der Agent auch das Tablet selbst (Apps, Wecker, Benachrichtigungen, Hintergrundaufgaben).
 
 ## Installation (PC)
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+# Keine Zusatzpakete nötig – nur Python 3.10+
 export ANTHROPIC_API_KEY="sk-ant-..."   # Schlüssel von https://console.anthropic.com
 ```
 
@@ -45,15 +44,21 @@ Ergebnisse landen im Ordner `workspace/` (änderbar über die Umgebungsvariable 
 
 ## Aufbau
 
-- `agent/main.py` – Kommandozeile, Systemprompt, Agenten-Schleife (SDK Tool Runner)
-- `agent/tools.py` – die lokalen Werkzeuge
+- `agent/main.py` – Kommandozeile, Systemprompt, Agenten-Schleife
+- `agent/claude.py` – schlanker Client für die Claude-API (nur Standardbibliothek)
+- `agent/tooling.py` – `@tool`-Decorator: Schema aus Signatur + Docstring
+- `agent/tools.py` – Datei-, Shell- und Gedächtnis-Werkzeuge
+- `agent/android_tools.py` – Tablet-Werkzeuge (nur aktiv unter Termux mit Termux:API)
+
+Bewusst ohne das `anthropic`-SDK: Dessen Abhängigkeiten müssten auf Android erst mit Rust
+kompiliert werden (10–20 Minuten, oft fehlerhaft). So ist der Agent in 1–3 Minuten installiert.
 
 Modell: `claude-opus-5-5` mit adaptivem Denken. Lehnt ein Sicherheitsfilter eine Anfrage ab,
 springt automatisch ein Ersatzmodell ein (`fallbacks: "default"`).
 
 ## Eigene Werkzeuge hinzufügen
 
-In `agent/tools.py` eine Funktion mit `@beta_tool` dekorieren (Docstring = Beschreibung für
+In `agent/tools.py` eine Funktion mit `@tool` dekorieren (Docstring = Beschreibung für
 das Modell, `Args:` = Parameterbeschreibungen) und in `LOCAL_TOOLS` eintragen. Fertig.
 
 ## Sicherheit

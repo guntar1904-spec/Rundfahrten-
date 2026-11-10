@@ -1,1 +1,1 @@
-anthropic>=2.8.0
+# Keine Abhängigkeiten – der Agent nutzt nur die Python-Standardbibliothek (Python >= 3.10).
