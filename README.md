@@ -4,7 +4,11 @@ Ein autonomer Agent auf Basis von Claude (Anthropic API, Python). Du gibst ihm e
 er plant, recherchiert im Web, schreibt Dateien, führt Skripte aus, prüft seine Arbeit
 und meldet sich erst, wenn er fertig ist.
 
-## Installation
+## Android
+
+Für Android (Termux) gibt es einen Installer – siehe [android/README.md](android/README.md).
+
+## Installation (PC)
 
 ```bash
 python3 -m venv .venv
