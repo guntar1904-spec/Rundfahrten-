@@ -11,7 +11,7 @@ import sys
 
 import anthropic
 
-from . import tools
+from . import android_tools, tools
 
 MODEL = "claude-opus-5-5"
 
@@ -43,11 +43,17 @@ def _print_progress(message) -> None:
 
 def run(goal: str, max_steps: int, effort: str) -> int:
     client = anthropic.Anthropic()
+    local_tools = list(tools.LOCAL_TOOLS)
+    system = SYSTEM_PROMPT
+    if android_tools.is_available():
+        local_tools += android_tools.ANDROID_TOOLS
+        system += "\n" + android_tools.ANDROID_PROMPT
+        print("📱 Android-Werkzeuge aktiv.")
     runner = client.beta.messages.tool_runner(
         model=MODEL,
         max_tokens=16000,
-        system=SYSTEM_PROMPT,
-        tools=[*tools.LOCAL_TOOLS, *tools.SERVER_TOOLS],
+        system=system,
+        tools=[*local_tools, *tools.SERVER_TOOLS],
         thinking={"type": "adaptive"},
         output_config={"effort": effort},
         # Falls ein Sicherheitsfilter ablehnt, übernimmt automatisch ein passendes Ersatzmodell.

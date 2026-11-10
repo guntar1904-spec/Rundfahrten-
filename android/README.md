@@ -7,6 +7,9 @@ Der Agent läuft auf dem Handy in **Termux**, einer kostenlosen Linux-Terminal-A
 Termux von **F-Droid** installieren: https://f-droid.org/packages/com.termux/
 (Die Version im Google Play Store ist veraltet und funktioniert nicht zuverlässig.)
 
+Damit der Agent das Tablet **selbst bedienen** kann, zusätzlich **Termux:API** von F-Droid
+installieren: https://f-droid.org/packages/com.termux.api/
+
 Optional für ein Homescreen-Symbol: **Termux:Widget** von F-Droid.
 
 ## 2. Installer starten
@@ -39,6 +42,41 @@ ki-agent --uninstall     # entfernen (Ergebnisse bleiben erhalten)
 ```
 
 Während der Agent arbeitet, hält er das Handy per Wake-Lock wach.
+
+## Was der Agent auf dem Tablet selbstständig erledigen kann
+
+| Bereich | Beispiele |
+|---|---|
+| Apps | installierte Apps auflisten und öffnen, Links/Karten/Mail öffnen, Text teilen |
+| Uhr & Kalender | Wecker und Timer stellen, Kalendertermin vorbereiten (1 Tipp zum Bestätigen) |
+| Benachrichtigungen | aktuelle Benachrichtigungen lesen, eigene senden |
+| Sprache & Text | Text vorlesen, Zwischenablage lesen/schreiben |
+| Gerät | Akku, WLAN, Lautstärke, Helligkeit, Standort, Foto aufnehmen |
+| Selbstständig im Hintergrund | Aufgaben planen („jeden Morgen …“), auflisten, löschen |
+| Wissen & Dateien | Websuche, Webseiten lesen, Dateien/Berichte schreiben, Gedächtnis |
+
+Beispiele:
+
+```bash
+ki-agent "Stell mir einen Wecker für morgen 6:45 und einen 20-Minuten-Timer zum Tee"
+ki-agent "Lies meine Benachrichtigungen und sag mir per Sprachausgabe, was wichtig ist"
+ki-agent "Schick mir ab jetzt jeden Morgen eine Benachrichtigung mit dem Wetter in Freiburg"
+ki-agent "Öffne YouTube"
+```
+
+### Berechtigungen
+
+Android fragt beim ersten Benutzen nach. Falls etwas nicht klappt, unter
+*Einstellungen → Apps → Termux:API* erlauben:
+- **Benachrichtigungszugriff** – zum Lesen der Benachrichtigungen
+- **Standort**, **Kamera** – für Standort und Fotos
+- **Systemeinstellungen ändern** – für die Helligkeit
+
+Und unter *Einstellungen → Apps → Termux*: **Über anderen Apps einblenden** – zum Öffnen von Apps.
+
+Geplante Hintergrundaufgaben laufen ohne Rückfragen (`--yes`). Android führt sie ungefähr im
+gewünschten Abstand aus (mindestens alle 15 Minuten), nicht auf die Minute genau. Für
+zuverlässige Ausführung in den Akku-Einstellungen die Optimierung für Termux abschalten.
 
 ## Aktualisieren
 

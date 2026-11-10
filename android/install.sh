@@ -27,7 +27,7 @@ fi
 # --- 1. Systempakete ---------------------------------------------------------
 say "Pakete aktualisieren und Python installieren (kann ein paar Minuten dauern)"
 pkg update -y
-pkg install -y python git
+pkg install -y python git termux-api
 
 # --- 2. Python-Abhängigkeiten ------------------------------------------------
 say "Virtuelle Python-Umgebung anlegen"
@@ -88,6 +88,7 @@ if [ "\${1:-}" = "--setup" ]; then
   mv "$ENV_FILE.tmp" "$ENV_FILE"; chmod 600 "$ENV_FILE"; echo "Gespeichert."; exit 0
 fi
 if [ "\${1:-}" = "--uninstall" ]; then
+  for job in "$CONFIG_DIR"/jobs/*.sh; do [ -e "\$job" ] && termux-job-scheduler --cancel --job-id "\$(basename "\$job" .sh)" >/dev/null 2>&1; done
   rm -rf "$INSTALL_DIR" "$CONFIG_DIR" "$BIN_DIR/ki-agent" "\$HOME/.shortcuts/KI-Agent"
   echo "Deinstalliert. Ergebnisse in $WORKSPACE wurden behalten."; exit 0
 fi
@@ -119,5 +120,8 @@ cat <<DONE
   Entfernen:      ki-agent --uninstall
 
   Ergebnisse:     $WORKSPACE
+  WICHTIG:        App "Termux:API" von F-Droid installieren, damit der Agent das Tablet
+                  bedienen kann (Apps öffnen, Wecker, Benachrichtigungen, ...).
+                  Für "Apps öffnen": Einstellungen > Apps > Termux > "Über anderen Apps einblenden" erlauben.
   Homescreen:     App "Termux:Widget" (F-Droid) installieren und Widget "KI-Agent" hinzufügen.
 DONE
